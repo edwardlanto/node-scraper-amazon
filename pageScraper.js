@@ -8,7 +8,8 @@ const scraperObject = {
     await page.goto(this.url, {
       waitUntil: "networkidle0",
     });
-    // page.click('a[href="/gp/browse.html?node=2206275011&amp;ref_=nav_cs_home"]');
+
+    
     await page.waitForSelector(".a-unordered-list");
     let urls = await page.$$eval(".a-list-item > .a-section", (links) => {
       // Extract the links from the data
@@ -37,24 +38,46 @@ const scraperObject = {
           (text) => text.textContent.trim()
         );
 
-        await newPage.waitForSelector('#centerCol');
-          let urls = await newPage.$$eval('#feature-bullets li', links => {
+        await newPage.waitForSelector("#centerCol");
+        let descriptions = await newPage.$$eval(
+          "#feature-bullets li",
+          (links) => {
             let obj = {};
-            links = links.map((el, i )=> {
-                obj[i] = el.querySelector('span').textContent.replace(/(\r\n\t|\n|\r|\t)/gm, "").trim();
-                return obj;
-            })
+            links = links.map((el, i) => {
+              obj[i] = el
+                .querySelector("span")
+                .textContent.replace(/(\r\n\t|\n|\r|\t)/gm, "")
+                .trim();
+              return obj;
+            });
             return links;
-        });
+          }
+        );
 
-        dataObj['description'] = urls;
+        let data = [];
+        let imgUrls = await newPage.$$(".imageThumbnail");
+        for (let i = 0; i < imgUrls.length; i++) {
+          await imgUrls[i].hover().then(async () => {
+            if ((await newPage.$(".selected img")) !== null) {
+             let images = await newPage.evaluate(() => {
+                return document
+                  .querySelector(".selected img")
+                  .getAttribute("src")
+                  .replace("/", "");
+              });
+              data.push(images);
+            }
+          });
+        }
+
+        dataObj["description"] = descriptions;
+        dataObj["imgs"] = data;
         resolve(dataObj);
         await newPage.close();
       });
 
     for (link in urls) {
       let currentPageData = await pagePromise(urls[link]);
-      // scrapedData.push(currentPageData);
       console.log(currentPageData);
     }
   },
