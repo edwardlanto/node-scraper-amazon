@@ -39,7 +39,11 @@ const scraperObject = {
 
         await newPage.waitForSelector('#centerCol');
           let urls = await newPage.$$eval('#feature-bullets li', links => {
-            links = links.map(el => el.querySelector('span').textContent)
+            let obj = {};
+            links = links.map((el, i )=> {
+                obj[i] = el.querySelector('span').textContent.replace(/(\r\n\t|\n|\r|\t)/gm, "").trim();
+                return obj;
+            })
             return links;
         });
 
