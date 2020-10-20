@@ -1,15 +1,17 @@
+const fs = require('fs')
 const scraperObject = {
   url:
     "https://www.amazon.ca/b/?_encoding=UTF8&node=6646928011&bbn=2206275011&ref_=Oct_s9_apbd_odnav_hd_bw_b2QVmV9_0&pf_rd_r=93MDVBSQ6G1NXBMGGH8M&pf_rd_p=e06c3dcb-a950-537a-a8b3-c08632afe364&pf_rd_s=merchandised-search-10&pf_rd_t=BROWSE&pf_rd_i=2224025011",
   async scraper(browser) {
     let page = await browser.newPage();
+    let scrapedDataArr = [];
     console.log(`Navigating to ${this.url}...`);
+
     // Navigate to the selected page
     await page.goto(this.url, {
       waitUntil: "networkidle0",
     });
 
-    
     await page.waitForSelector(".a-unordered-list");
     let urls = await page.$$eval(".a-list-item > .a-section", (links) => {
       // Extract the links from the data
@@ -20,65 +22,70 @@ const scraperObject = {
     // Loop through each of those links, open a new page instance and get the relevant data from them
     let pagePromise = (link) =>
       new Promise(async (resolve, reject) => {
+        // Create object to structure data
         let dataObj = {};
         let newPage = await browser.newPage();
         await newPage.goto(link, {
+          // Fix race condition. Wait until DOM has rendered
           waitUntil: "networkidle0",
         });
 
-        dataObj["title"] = await newPage.$eval("#productTitle", (text) =>
+        dataObj.title = await newPage.$eval("#productTitle", (text) =>
           text.textContent.replace(/(\r\n\t|\n|\r|\t)/gm, "")
         );
-        dataObj["brand"] = await newPage.$eval(
+
+        dataObj.brand = await newPage.$eval(
           "#bylineInfo",
           (text) => text.textContent
-        );
-        dataObj["rating"] = await newPage.$eval(
-          "span[class='a-icon-alt']",
-          (text) => text.textContent.trim()
         );
 
         await newPage.waitForSelector("#centerCol");
         let descriptions = await newPage.$$eval(
           "#feature-bullets li",
           (links) => {
-            let obj = {};
+            let descriptionArr =[]
             links = links.map((el, i) => {
-              obj[i] = el
+              descriptionArr.push(el
                 .querySelector("span")
                 .textContent.replace(/(\r\n\t|\n|\r|\t)/gm, "")
-                .trim();
-              return obj;
+                .trim())
             });
-            return links;
+            return descriptionArr;
           }
         );
 
-        let data = [];
         let imgUrls = await newPage.$$(".imageThumbnail");
+        let imgArr = [];
+
+        // Loop through all img thumbnails to get main img
         for (let i = 0; i < imgUrls.length; i++) {
-          await imgUrls[i].hover().then(async () => {
-            if ((await newPage.$(".selected img")) !== null) {
-             let images = await newPage.evaluate(() => {
-                return document
-                  .querySelector(".selected img")
-                  .getAttribute("src")
-                  .replace("/", "");
-              });
-              data.push(images);
-            }
+          await imgUrls[i].hover();
+          await newPage.waitFor(500);
+          let img =  await newPage.$eval(".selected img", (img) => {
+            return img.getAttribute("src");
           });
+          imgArr.push(img);
         }
 
-        dataObj["description"] = descriptions;
-        dataObj["imgs"] = data;
+        dataObj.descriptions = descriptions;
+        dataObj.imgURls = imgArr;
         resolve(dataObj);
         await newPage.close();
       });
 
     for (link in urls) {
-      let currentPageData = await pagePromise(urls[link]);
-      console.log(currentPageData);
+      scrapedDataArr.push(await pagePromise(urls[link]));
+      if(scrapedDataArr.length === 5){
+        scrapedDataArr = JSON.stringify(scrapedDataArr)
+        fs.writeFile('products.js', scrapedDataArr, (err) => {
+          if(err){
+            console.log(err);
+          }else{
+            console.log("successfully wrote file")
+          }
+        })
+        break;
+      }
     }
   },
 };
