@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "node-fetch": "^2.6.1",
     "nodemon": "^2.0.4",
     "puppeteer": "^5.2.1"
   }
