@@ -96,39 +96,57 @@ const scraperObject = {
 
 		const morphedJson = JSON.parse(scrapedDataArr).map((product) => ({
 			title: product.title,
-			data: product.descriptions.map((description, index) => ({
-				left: {
-					type: "image",
-					url: !!product.imgURls[index]
-						? product.imgURls[index]
-						: product.imgURls[0],
-				},
-				right: {
-					type: "points",
-					text: [description],
-				},
-			})),
+			data: product.descriptions.map((description, index) =>
+				index === 0 || index % 2 === 0
+					? {
+							left: {
+								type: "image",
+								url: !!product.imgURls[index]
+									? product.imgURls[index]
+									: product.imgURls[0],
+							},
+							right: {
+								type: "points",
+								text: [description],
+							},
+					  }
+					: {
+							right: {
+								type: "image",
+								url: !!product.imgURls[index]
+									? product.imgURls[index]
+									: product.imgURls[0],
+							},
+							left: {
+								type: "points",
+								text: [description],
+							},
+					  }
+			),
 		}));
+
+		const generationURL =
+			process.env.NODE_ENV === "development"
+				? "http://localhost:8000"
+				: "http://localhost:8000"; // replace with correct url once hosted
 
 		try {
 			const allPromises = morphedJson.map(
 				async (product) =>
 					await fetch(
-						`http://localhost:8000?data=${encodeURI(
+						`${generationURL}?data=${encodeURI(
 							JSON.stringify(product)
 						)}`
 					)
 			);
 
-			`http://localhost:8000?data=${encodeURI(
+			`${generationURL}?data=${encodeURI(
 				JSON.stringify(morphedJson[0])
 			)}`;
 
-			console.log(allPromises);
+			const response = await Promise.all(allPromises);
 
-			console.log(JSON.stringify(allPromises, null, 4));
-
-			await Promise.all(allPromises);
+			console.log(JSON.stringify(response, null, 4));
 		} catch (error) {
 			console.error(error);
 		}
